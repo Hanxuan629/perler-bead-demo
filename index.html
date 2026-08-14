@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拼豆实验 Pilot · Perler Bead Demo</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --ink:#e9edf3; --muted:#9aa4b2;
+    --line:#262b35; --add:#4C9BE6; --mod:#F2A63B; --del:#E05656;
+    --ok:#4FBF8B; --accent:#ffcf33; --bead:#5aa9e6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:#05070b; color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    min-height:100vh;
+  }
+
+  /* ---- top bar ---- */
+  header{
+    display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+    padding:12px 22px; background:linear-gradient(160deg,#141821,#0f1115);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{font-size:17px; font-weight:800; letter-spacing:.3px;}
+  .brand small{color:var(--muted); font-weight:500; margin-left:8px; letter-spacing:0;}
+  .spacer{flex:1;}
+  .grp{display:flex; align-items:center; gap:6px;}
+  .grp label{color:var(--muted); font-size:12px; letter-spacing:.5px; text-transform:uppercase;}
+  .seg{display:flex; background:#0e1219; border:1px solid var(--line); border-radius:9px; overflow:hidden;}
+  .seg button{background:none; border:none; color:var(--muted); padding:7px 14px; font-size:13px;
+    font-weight:600; cursor:pointer;}
+  .seg button.on{background:var(--accent); color:#0d0f14;}
+  select, .btn{background:#0e1219; color:var(--ink); border:1px solid var(--line);
+    border-radius:9px; padding:7px 12px; font-size:13px; cursor:pointer; font-weight:600;}
+  .btn:hover, select:hover{border-color:#3a4250;}
+  .btn.warn{color:var(--del); border-color:#3a2530;}
+  .btn.go{background:var(--ok); color:#0d0f14; border-color:var(--ok);}
+
+  /* ---- phase bar ---- */
+  .phasebar{display:flex; align-items:center; gap:14px; padding:9px 22px;
+    background:#0b0e13; border-bottom:1px solid var(--line); font-size:13px;}
+  .pill{padding:4px 12px; border-radius:20px; font-weight:700; font-size:12px; letter-spacing:.5px;}
+  .pill.speaker{background:rgba(76,155,230,.15); color:var(--add); border:1px solid rgba(76,155,230,.4);}
+  .pill.listener{background:rgba(79,191,139,.15); color:var(--ok); border:1px solid rgba(79,191,139,.4);}
+  .phasebar .rnd{color:var(--muted);} .phasebar .rnd b{color:var(--ink);}
+
+  /* ---- layout ---- */
+  main{padding:22px; display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap; justify-content:center;}
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:18px 20px; width:min(440px,94vw); display:flex; flex-direction:column; gap:14px;}
+  .panel h2{font-size:15px; font-weight:750; display:flex; align-items:center; gap:9px;}
+  .panel h2 .tag{font-size:11px; font-weight:800; padding:3px 9px; border-radius:6px; letter-spacing:.5px;}
+  .tag.sp{background:var(--add); color:#0d0f14;} .tag.li{background:var(--ok); color:#0d0f14;}
+  .sub{color:var(--muted); font-size:12.5px; margin-top:-8px;}
+
+  /* ---- grid ---- */
+  .grid{display:grid; gap:2px; background:var(--line); border:1px solid var(--line);
+    border-radius:8px; padding:2px; width:100%; aspect-ratio:1/1;}
+  .cell{background:#0c0f14; border-radius:2px; position:relative;}
+  .cell.filled{background:var(--bead);}
+  .cell.tgt{background:var(--bead);}
+  .cell.extra{background:var(--del);}
+  .cell.missing{background:#0c0f14; box-shadow:inset 0 0 0 2px rgba(90,169,230,.45);}
+  .grid.live .cell{cursor:pointer;}
+  .grid.live .cell:hover{outline:2px solid var(--accent); outline-offset:-2px; z-index:1;}
+  .grid.locked{opacity:.5; pointer-events:none;}
+
+  /* ---- stats ---- */
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+  .stat{background:#0e1219; border:1px solid var(--line); border-radius:9px; padding:8px 10px;}
+  .stat .k{color:var(--muted); font-size:11px; letter-spacing:.4px;}
+  .stat .v{font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; margin-top:2px;}
+  .v.good{color:var(--ok);} .v.mid{color:var(--mod);} .v.bad{color:var(--del);}
+
+  /* ---- instruction io ---- */
+  .instr-in{display:flex; flex-direction:column; gap:8px;}
+  textarea{background:#0c0f14; color:var(--ink); border:1px solid var(--line); border-radius:9px;
+    padding:10px 12px; font-size:14px; resize:vertical; min-height:64px; font-family:inherit;}
+  textarea:disabled{opacity:.4;}
+  .instr-show{background:#0e1219; border:1px solid var(--line); border-left:3px solid var(--ok);
+    border-radius:9px; padding:12px 14px; font-size:15px; min-height:52px;}
+  .instr-show.empty{color:var(--muted); font-style:italic; border-left-color:var(--line);}
+  .row{display:flex; gap:8px; align-items:center;}
+
+  /* ---- history ---- */
+  .hist{max-height:180px; overflow:auto; display:flex; flex-direction:column; gap:6px;}
+  .hrow{display:flex; gap:10px; align-items:baseline; font-size:12.5px; padding:6px 8px;
+    background:#0e1219; border:1px solid var(--line); border-radius:8px;}
+  .hrow .n{color:var(--accent); font-weight:800; flex:none; width:22px;}
+  .hrow .t{flex:1; color:#cfd6e0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .hrow .d{flex:none; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .hrow .a{flex:none; font-size:11px; color:var(--muted);}
+  .empty-note{color:var(--muted); font-size:12.5px; font-style:italic;}
+
+  /* trajectory */
+  .traj{width:100%; height:56px;}
+  .divider{height:1px; background:var(--line); margin:2px 0;}
+
+  .toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:#1b2029; border:1px solid var(--line); color:var(--ink); padding:10px 18px;
+    border-radius:10px; font-size:13px; opacity:0; transition:opacity .25s; pointer-events:none; z-index:50;}
+  .toast.show{opacity:1;}
+
+  /* ---- intro / help overlay ---- */
+  .overlay{position:fixed; inset:0; background:rgba(3,5,8,.82); backdrop-filter:blur(4px);
+    display:none; align-items:center; justify-content:center; z-index:100; padding:24px;}
+  .overlay.show{display:flex;}
+  .modal{background:linear-gradient(160deg,#141821,#0f1115); border:1px solid var(--line);
+    border-radius:16px; padding:30px 34px; width:min(600px,94vw); max-height:90vh; overflow:auto;
+    box-shadow:0 30px 90px rgba(0,0,0,.6);}
+  .modal h1{font-size:24px; font-weight:800;}
+  .modal .lead{color:var(--muted); font-size:14px; margin:8px 0 20px; line-height:1.6;}
+  .steps{display:flex; flex-direction:column; gap:12px; margin-bottom:20px;}
+  .step{display:flex; gap:14px; align-items:flex-start;}
+  .step .num{flex:none; width:26px; height:26px; border-radius:50%; background:var(--accent);
+    color:#0d0f14; font-weight:800; display:grid; place-items:center; font-size:14px;}
+  .step .txt{font-size:14.5px; line-height:1.5; color:#dbe2ec;}
+  .step .txt b{color:var(--ink);}
+  .modes{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:22px;}
+  .mode{background:#0e1219; border:1px solid var(--line); border-radius:11px; padding:14px 16px;}
+  .mode h3{font-size:14px; font-weight:750; margin-bottom:6px;}
+  .mode p{font-size:12.5px; color:var(--muted); line-height:1.5;}
+  .mode .k{color:var(--accent); font-weight:700;}
+  .modal .go{width:100%; padding:12px; font-size:15px;}
+  .helpbtn{background:#0e1219; color:var(--muted); border:1px solid var(--line); border-radius:50%;
+    width:34px; height:34px; font-size:15px; cursor:pointer; font-weight:700;}
+  .helpbtn:hover{border-color:#3a4250; color:var(--ink);}
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">拼豆实验 <small>Perler Bead Pilot · Layer 2/3 probe</small></div>
+    <div class="spacer"></div>
+    <div class="grp">
+      <label>视角</label>
+      <div class="seg" id="roleSeg">
+        <button data-role="both">双屏 Both</button>
+        <button data-role="speaker">Speaker</button>
+        <button data-role="listener">Listener</button>
+      </div>
+    </div>
+    <div class="grp">
+      <label>图案</label>
+      <select id="patternSel"></select>
+    </div>
+    <button class="btn warn" id="resetBtn">↺ 重置</button>
+    <button class="btn" id="exportBtn">⇩ 导出 JSON</button>
+    <button class="helpbtn" id="helpBtn" title="怎么玩">?</button>
+  </header>
+
+  <div class="overlay" id="intro">
+    <div class="modal">
+      <h1>拼豆实验 · 怎么玩</h1>
+      <div class="lead">这是一个双人多轮沟通任务:<b>Speaker</b> 看得到目标图案,用文字一轮轮描述;<b>Listener</b> 看不到目标,照着描述在网格上放珠子。目标是用最少的轮次把 Listener 的画布还原成目标。</div>
+      <div class="steps">
+        <div class="step"><span class="num">1</span><span class="txt"><b>Speaker</b> 看左边的目标,在输入框写一条描述,点「发送指令」。</span></div>
+        <div class="step"><span class="num">2</span><span class="txt"><b>Listener</b> 读到指令后,点击右边网格放珠子(<b>再点一次 = 删除</b>),完成后点「提交本轮」。</span></div>
+        <div class="step"><span class="num">3</span><span class="txt">Speaker 这时才看到 Listener 的进度(<span style="color:var(--del)">红=多放</span> / 空心框=漏放),再发下一轮。重复直到还原。</span></div>
+      </div>
+      <div class="modes">
+        <div class="mode"><h3>一个人试玩</h3><p>保持顶部 <span class="k">双屏 Both</span> 视角,自己同时扮演两边,走完一轮流程。</p></div>
+        <div class="mode"><h3>两个人(同一台电脑)</h3><p>开两个窗口,一个切 <span class="k">Speaker</span>、一个切 <span class="k">Listener</span>,会自动同步。</p></div>
+      </div>
+      <button class="btn go" id="startBtn">开始 →</button>
+    </div>
+  </div>
+
+  <div class="phasebar">
+    <span class="rnd">轮次 Round <b id="roundNum">1</b></span>
+    <span id="phasePill" class="pill speaker">SPEAKER 出题中</span>
+    <span class="rnd" id="phaseHint"></span>
+  </div>
+
+  <main id="app"></main>
+  <div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ */
+/*  Patterns — authored as ASCII art (# = bead, . = empty), 12x12.     */
+/*  Kept 20–40 beads each with clear substructure (see handoff doc).   */
+/* ------------------------------------------------------------------ */
+const ASCII = {
+  cat: {
+    name: "猫脸 Cat (~36格, 强子结构)",
+    rows: [
+      "............",
+      "..#......#..",
+      ".#.#....#.#.",
+      "..########..",
+      ".#........#.",
+      ".#.#....#.#.",
+      ".#........#.",
+      ".#...##...#.",
+      ".#........#.",
+      "..########..",
+      "............",
+      "............",
+    ],
+  },
+  heart: {
+    name: "爱心 Heart (~24格, 双瓣+尖)",
+    rows: [
+      "............",
+      ".###....###.",
+      "#...#..#...#",
+      "#....##....#",
+      ".#........#.",
+      "..#......#..",
+      "...#....#...",
+      "....#..#....",
+      ".....##.....",
+      "............",
+      "............",
+      "............",
+    ],
+  },
+  arrow: {
+    name: "上箭头 Arrow (~28格, 几何/对照)",
+    rows: [
+      "............",
+      "............",
+      ".....#......",
+      "....###.....",
+      "...#####....",
+      "..#######...",
+      "....###.....",
+      "....###.....",
+      "....###.....",
+      "....###.....",
+      "............",
+      "............",
+    ],
+  },
+};
+
+function asciiToGrid(rows){
+  return rows.map(line => [...line].map(ch => ch === "#" ? 1 : 0));
+}
+const PATTERNS = Object.fromEntries(
+  Object.entries(ASCII).map(([id, p]) => [id, {name: p.name, grid: asciiToGrid(p.rows)}])
+);
+
+/* ------------------------------------------------------------------ */
+/*  Shared state — persisted to localStorage, synced across windows.   */
+/* ------------------------------------------------------------------ */
+const LSKEY = "perler-bead-state-v1";
+const CHAN = new BroadcastChannel("perler-bead-demo");
+
+let myRole = "both";          // per-window, NOT synced
+let state = null;
+
+function zeros(g){ return g.map(r => r.map(() => 0)); }
+function clone(g){ return g.map(r => r.slice()); }
+
+function newSession(patternId){
+  const target = clone(PATTERNS[patternId].grid);
+  state = {
+    patternId,
+    target,
+    committed: zeros(target),   // last submitted canvas — what Speaker sees
+    design: zeros(target),      // Listener working canvas (live)
+    pending: [],                // action log for the current listener turn
+    rounds: [],                 // completed rounds
+    instruction: "",            // current round's instruction (Listener sees)
+    phase: "speaker_turn",      // 'speaker_turn' | 'listener_turn'
+    roundNum: 1,
+    tSent: null,
+    startedAt: Date.now(),
+  };
+  save();
+}
+
+function save(){
+  localStorage.setItem(LSKEY, JSON.stringify(state));
+  CHAN.postMessage({type:"state"});
+  render();
+}
+function loadFromLS(){
+  const s = localStorage.getItem(LSKEY);
+  if(s){ try{ state = JSON.parse(s); return true; }catch(e){} }
+  return false;
+}
+CHAN.onmessage = (e) => { if(e.data && e.data.type === "state"){ loadFromLS(); render(); } };
+window.addEventListener("storage", (e) => { if(e.key === LSKEY){ loadFromLS(); render(); } });
+
+/* ------------------------------------------------------------------ */
+/*  Metrics                                                            */
+/* ------------------------------------------------------------------ */
+function hamming(a, b){
+  let h = 0;
+  for(let r=0;r<a.length;r++) for(let c=0;c<a[0].length;c++) if(a[r][c]!==b[r][c]) h++;
+  return h;
+}
+function count(g){ let n=0; for(const row of g) for(const v of row) n+=v; return n; }
+function normDist(design){ const t = count(state.target); return t ? hamming(design, state.target)/t : 0; }
+
+/* ------------------------------------------------------------------ */
+/*  Actions                                                            */
+/* ------------------------------------------------------------------ */
+function sendInstruction(text){
+  if(state.phase !== "speaker_turn"){ toast("现在不是 Speaker 回合"); return; }
+  const t = text.trim();
+  if(!t){ toast("指令不能为空"); return; }
+  state.instruction = t;
+  state.tSent = Date.now();
+  state.pending = [];
+  state.phase = "listener_turn";
+  save();
+}
+
+function toggleCell(r, c){
+  if(state.phase !== "listener_turn"){ return; }
+  const was = state.design[r][c];
+  state.design[r][c] = was ? 0 : 1;
+  state.pending.push({type: was ? "DELETE" : "ADD", r, c, t: Date.now()});
+  save();
+}
+
+function submitRound(){
+  if(state.phase !== "listener_turn"){ toast("现在不是 Listener 回合"); return; }
+  state.committed = clone(state.design);
+  const h = hamming(state.committed, state.target);
+  state.rounds.push({
+    round: state.roundNum,
+    instruction: state.instruction,
+    tSent: state.tSent,
+    tSubmitted: Date.now(),
+    actions: state.pending.slice(),
+    nActions: state.pending.length,
+    hammingAfter: h,
+    normAfter: +(normDist(state.committed)).toFixed(4),
+    beadsAfter: count(state.committed),
+  });
+  state.pending = [];
+  state.roundNum += 1;
+  state.instruction = "";
+  state.phase = "speaker_turn";
+  save();
+  if(h === 0) toast("🎉 完全匹配！Hamming = 0");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Rendering                                                          */
+/* ------------------------------------------------------------------ */
+const app = document.getElementById("app");
+const cols = () => state.target[0].length;
+
+function gridHTML(grid, opts={}){
+  const {live=false, kind="plain"} = opts; // kind: plain | speakerDesign | target
+  const n = cols();
+  let cells = "";
+  for(let r=0;r<grid.length;r++){
+    for(let c=0;c<grid[0].length;c++){
+      let cls = "cell";
+      if(kind === "target"){
+        if(state.target[r][c]) cls += " tgt";
+      } else if(kind === "speakerDesign"){
+        const d = grid[r][c], t = state.target[r][c];
+        if(d && t) cls += " filled";
+        else if(d && !t) cls += " extra";     // wrongly placed
+        else if(!d && t) cls += " missing";   // still missing (ghost outline)
+      } else {
+        if(grid[r][c]) cls += " filled";
+      }
+      cells += `<div class="${cls}" data-r="${r}" data-c="${c}"></div>`;
+    }
+  }
+  const liveCls = live ? "live" : (opts.locked ? "locked" : "");
+  return `<div class="grid ${liveCls}" style="grid-template-columns:repeat(${n},1fr)">${cells}</div>`;
+}
+
+function trajectoryHTML(){
+  const pts = [1.0, ...state.rounds.map(r => r.normAfter)];
+  const W = 400, H = 56, pad = 4;
+  const maxY = Math.max(1.0, ...pts);
+  const n = pts.length;
+  const x = i => n<=1 ? W/2 : pad + i*(W-2*pad)/(n-1);
+  const y = v => H-pad - (v/maxY)*(H-2*pad);
+  const poly = pts.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const dots = pts.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3" fill="var(--accent)"/>`).join("");
+  return `<svg class="traj" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <line x1="${pad}" y1="${y(0)}" x2="${W-pad}" y2="${y(0)}" stroke="var(--ok)" stroke-dasharray="3 3" stroke-width="1" opacity=".5"/>
+    <polyline points="${poly}" fill="none" stroke="var(--add)" stroke-width="2"/>${dots}
+  </svg>`;
+}
+
+function speakerPanel(){
+  const canSend = state.phase === "speaker_turn";
+  const h = hamming(state.committed, state.target);
+  const nd = normDist(state.committed);
+  const ndCls = nd===0 ? "good" : nd<0.4 ? "mid" : "bad";
+  const hist = state.rounds.length
+    ? state.rounds.map(r => `<div class="hrow"><span class="n">${r.round}</span>
+        <span class="t" title="${escapeHtml(r.instruction)}">${escapeHtml(r.instruction)}</span>
+        <span class="a">${r.nActions}op</span>
+        <span class="d">H=${r.hammingAfter}</span></div>`).join("")
+    : `<div class="empty-note">还没有已完成的轮次。</div>`;
+  return `<div class="panel">
+    <h2><span class="tag sp">SPEAKER</span> 目标 & 进度</h2>
+    <div class="sub">只有你能看到目标。每轮结束才看到 Listener 提交的进度（含错误标注）。</div>
+    <div class="row" style="align-items:flex-start; gap:14px;">
+      <div style="flex:1;">
+        <div class="sub" style="margin:0 0 6px;">TARGET（你要传达的）</div>
+        ${gridHTML(state.target, {kind:"target"})}
+      </div>
+      <div style="flex:1;">
+        <div class="sub" style="margin:0 0 6px;">Listener 已提交</div>
+        ${gridHTML(state.committed, {kind:"speakerDesign"})}
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="k">HAMMING</div><div class="v ${ndCls}">${h}</div></div>
+      <div class="stat"><div class="k">归一化距离</div><div class="v ${ndCls}">${nd.toFixed(2)}</div></div>
+      <div class="stat"><div class="k">已完成轮</div><div class="v">${state.rounds.length}</div></div>
+    </div>
+    ${state.rounds.length ? `<div class="sub" style="margin:2px 0 -4px;">归一化距离轨迹（虚线=0）</div>${trajectoryHTML()}` : ""}
+    <div class="divider"></div>
+    <div class="instr-in">
+      <div class="sub" style="margin:0;">${canSend ? `发送第 ${state.roundNum} 轮指令` : "等待 Listener 提交…"}</div>
+      <textarea id="instrBox" placeholder="例：先在正中间画一个正方形轮廓…" ${canSend?"":"disabled"}></textarea>
+      <div class="row"><button class="btn go" id="sendBtn" ${canSend?"":"disabled"}>发送指令 →</button></div>
+    </div>
+    <div class="divider"></div>
+    <div class="sub" style="margin:0;">历史</div>
+    <div class="hist">${hist}</div>
+  </div>`;
+}
+
+function listenerPanel(){
+  const active = state.phase === "listener_turn";
+  const instr = state.instruction
+    ? `<div class="instr-show">${escapeHtml(state.instruction)}</div>`
+    : `<div class="instr-show empty">等待 Speaker 的指令…</div>`;
+  const beads = count(state.design);
+  return `<div class="panel">
+    <h2><span class="tag li">LISTENER</span> 放珠子</h2>
+    <div class="sub">点击格子放/取珠子（再点一次=删除）。看不到目标，照指令操作，完成后点提交。</div>
+    <div class="sub" style="margin:0;">本轮指令</div>
+    ${instr}
+    ${gridHTML(state.design, {live: active, locked: !active})}
+    <div class="stats">
+      <div class="stat"><div class="k">已放珠子</div><div class="v">${beads}</div></div>
+      <div class="stat"><div class="k">本轮操作</div><div class="v">${state.pending.length}</div></div>
+      <div class="stat"><div class="k">当前轮</div><div class="v">${state.roundNum}</div></div>
+    </div>
+    <div class="row"><button class="btn go" id="submitBtn" ${active?"":"disabled"} style="flex:1;">提交本轮 ✓</button></div>
+    ${active ? "" : `<div class="empty-note">Speaker 尚未发指令 / 已提交，请等待下一轮。</div>`}
+  </div>`;
+}
+
+function render(){
+  // header widgets
+  document.getElementById("roundNum").textContent = state.roundNum;
+  const pill = document.getElementById("phasePill");
+  const hint = document.getElementById("phaseHint");
+  if(state.phase === "speaker_turn"){
+    pill.className = "pill speaker"; pill.textContent = "SPEAKER 出题中";
+    hint.textContent = "→ Speaker 发送指令后轮到 Listener";
+  } else {
+    pill.className = "pill listener"; pill.textContent = "LISTENER 操作中";
+    hint.textContent = "→ Listener 提交后 Speaker 看到进度";
+  }
+  document.querySelectorAll("#roleSeg button").forEach(b =>
+    b.classList.toggle("on", b.dataset.role === myRole));
+  document.getElementById("patternSel").value = state.patternId;
+
+  // body
+  if(myRole === "speaker") app.innerHTML = speakerPanel();
+  else if(myRole === "listener") app.innerHTML = listenerPanel();
+  else app.innerHTML = speakerPanel() + listenerPanel();
+
+  // wire the just-rendered controls
+  const send = document.getElementById("sendBtn");
+  if(send) send.onclick = () => sendInstruction(document.getElementById("instrBox").value);
+  const box = document.getElementById("instrBox");
+  if(box) box.onkeydown = (e) => {
+    if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendInstruction(box.value); }
+  };
+  const sub = document.getElementById("submitBtn");
+  if(sub) sub.onclick = submitRound;
+}
+
+/* one delegated click handler for all listener grids */
+app.addEventListener("click", (e) => {
+  const cell = e.target.closest(".grid.live .cell");
+  if(!cell) return;
+  toggleCell(+cell.dataset.r, +cell.dataset.c);
+});
+
+/* ------------------------------------------------------------------ */
+/*  Header controls                                                    */
+/* ------------------------------------------------------------------ */
+function populatePatternSelect(){
+  const sel = document.getElementById("patternSel");
+  sel.innerHTML = Object.entries(PATTERNS)
+    .map(([id,p]) => `<option value="${id}">${escapeHtml(p.name)}</option>`).join("");
+  sel.onchange = () => {
+    if(confirm("切换图案会开始新一轮实验，清空当前进度。继续？")) newSession(sel.value);
+    else sel.value = state.patternId;
+  };
+}
+document.getElementById("roleSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if(!b) return;
+  myRole = b.dataset.role; render();
+});
+document.getElementById("resetBtn").onclick = () => {
+  if(confirm("重置当前图案的所有进度？")) newSession(state.patternId);
+};
+document.getElementById("exportBtn").onclick = exportJSON;
+
+/* intro / help overlay */
+const intro = document.getElementById("intro");
+function showIntro(){ intro.classList.add("show"); }
+function hideIntro(){ intro.classList.remove("show"); localStorage.setItem("perler-seen-intro","1"); }
+document.getElementById("startBtn").onclick = hideIntro;
+document.getElementById("helpBtn").onclick = showIntro;
+intro.addEventListener("click", (e) => { if(e.target === intro) hideIntro(); });
+
+function exportJSON(){
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    patternId: state.patternId,
+    patternName: PATTERNS[state.patternId].name,
+    gridSize: {rows: state.target.length, cols: state.target[0].length},
+    targetBeadCount: count(state.target),
+    target: state.target,
+    finalDesign: state.committed,
+    finalHamming: hamming(state.committed, state.target),
+    startedAt: state.startedAt,
+    rounds: state.rounds,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `perler_pilot_${state.patternId}_${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast("已导出 " + a.download);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Utils                                                              */
+/* ------------------------------------------------------------------ */
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+let toastTimer = null;
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove("show"), 1800);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Boot                                                               */
+/* ------------------------------------------------------------------ */
+populatePatternSelect();
+if(!loadFromLS()) newSession("cat");
+render();
+if(!localStorage.getItem("perler-seen-intro")) showIntro();
+</script>
+</body>
+</html>
