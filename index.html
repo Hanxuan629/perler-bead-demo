@@ -73,9 +73,6 @@
     border-radius:8px; padding:2px; width:100%; aspect-ratio:1/1;}
   .cell{background:#0c0f14; border-radius:2px; position:relative;}
   .cell.filled{background:var(--bead);}
-  .cell.tgt{background:var(--bead);}
-  .cell.extra{background:var(--del);}
-  .cell.missing{background:#0c0f14; box-shadow:inset 0 0 0 2px rgba(90,169,230,.45);}
   .grid.live .cell{cursor:pointer;}
   .grid.live .cell:hover{outline:2px solid var(--accent); outline-offset:-2px; z-index:1;}
   .grid.locked{opacity:.5; pointer-events:none;}
@@ -235,11 +232,11 @@
   <div class="overlay" id="intro">
     <div class="modal">
       <h1>Perler Bead · How to play</h1>
-      <div class="lead">A two-person, multi-round communication task. The <b>Speaker</b> can see the target pattern and describes it in words, round by round. The <b>Listener</b> cannot see the target and places beads on a blank grid from the description. The goal: reconstruct the target in as few rounds as possible.</div>
+      <div class="lead">A two-person, multi-round communication task. The <b>Speaker</b> can see the source image and describes it in words, round by round. The <b>Listener</b> cannot see the source image or bead answer and places beads on a blank grid from the description. The goal: reconstruct the hidden bead pattern in as few rounds as possible.</div>
       <div class="steps">
-        <div class="step"><span class="num">1</span><span class="txt"><b>Speaker</b> looks at the target, writes one description, clicks "Send instruction", then <b>draws the board they expect</b> the Listener to build from it.</span></div>
+        <div class="step"><span class="num">1</span><span class="txt"><b>Speaker</b> looks at the source image, writes one description, clicks "Send instruction", then <b>draws the board they expect</b> the Listener to build from it.</span></div>
         <div class="step"><span class="num">2</span><span class="txt"><b>Listener</b> reads the instruction, clicks grid cells to place beads (<b>click again = remove</b>), then clicks "Submit round".</span></div>
-        <div class="step"><span class="num">3</span><span class="txt">Only now does the Speaker see the Listener's progress (<span style="color:var(--del)">red = extra</span> / outline = missing) alongside their own forecast, and sends the next round. Repeat until reconstructed.</span></div>
+        <div class="step"><span class="num">3</span><span class="txt">Only now does the Speaker see the Listener's submitted board alongside their own forecast—without any answer-position highlights—and sends the next round.</span></div>
       </div>
       <div class="modes">
         <div class="mode"><h3>Try it solo</h3><p>Keep the <span class="k">Both</span> view at the top and play both roles yourself to walk through a round.</p></div>
@@ -276,7 +273,7 @@
         <div class="lead">Real-time and peer-to-peer — no server involved. One person creates a room and sends the link; the other opens it. Both must be online at the same time.</div>
         <div class="sub" style="margin:0 0 8px;">You will be the:</div>
         <div class="rolechoice" id="roleChoice">
-          <div class="rolecard on" data-role="speaker"><h3>Speaker</h3><p>You see the target and give instructions. (Typical for the experimenter.)</p></div>
+          <div class="rolecard on" data-role="speaker"><h3>Speaker</h3><p>You see the source image—not the converted bead answer—and give instructions. (Typical for the experimenter.)</p></div>
           <div class="rolecard" data-role="listener"><h3>Listener</h3><p>You place beads from instructions. (Typical for the participant.)</p></div>
         </div>
         <button class="btn go" id="createRoomBtn" style="width:100%;">Create room</button>
@@ -307,16 +304,13 @@
 /*  runs ONLY on the target-holding (writer) client, never the         */
 /*  Listener. Leave SUPABASE_URL empty to disable logging entirely.    */
 /* ================================================================== */
-const APP_VERSION   = "2026-08-19-approved-2da57483";
+const APP_VERSION   = "2026-08-19-speaker-icon-only";
 const SUPABASE_URL  = "";   // <- paste your project URL, e.g. https://xxxx.supabase.co
 const SUPABASE_ANON_KEY = "";   // <- paste the anon (public) key
 const LOG_ENABLED   = true;
-// Which stimulus the Speaker sees: 'A' = source icon, 'B' = the 12x12 grid.
-// Override per-session with ?sees=A / ?sees=B. Scoring is ALWAYS against B (state.target).
-const SPEAKER_SEES  = (() => {
-  const q = new URLSearchParams(location.search).get("sees");
-  return (q === "A" || q === "B") ? q : "A";
-})();
+// The Speaker always sees stimulus A (the source icon). The converted 12x12
+// grid B remains internal for scoring and is never rendered as their answer.
+const SPEAKER_SEES  = "A";
 
 let sb = null;
 try {
@@ -670,7 +664,6 @@ function recordSubmission(design, actions, round){
   state.prediction = zeros(state.target);
   state.predictionPending = [];
   state.phase = "speaker_turn";
-  if(h === 0) toast("🎉 Perfect match! Hamming = 0");
 }
 
 /* ================================================================== */
@@ -678,8 +671,8 @@ function recordSubmission(design, actions, round){
 /*  Only the target-holding client (solo, or online Speaker) inserts,  */
 /*  so the Listener's browser never touches the sensitive columns.     */
 /*  Inserts omit .select() → return=minimal, required by write-only    */
-/*  RLS. Any failure is swallowed; localStorage + exportJSON remain    */
-/*  the source of truth.                                               */
+/*  RLS. Any failure is swallowed; localStorage remains the local      */
+/*  source of truth. Participant exports intentionally omit target B.  */
 /* ================================================================== */
 function isWriter(){ return MODE === "solo" || (MODE === "online" && myRole === "speaker"); }
 
@@ -962,22 +955,13 @@ const app = document.getElementById("app");
 const cols = () => state.target[0].length;
 
 function gridHTML(grid, opts={}){
-  const {live=false, kind="plain", edit="design"} = opts;   // kind: plain | speakerDesign | target
+  const {live=false, edit="design"} = opts;
   const n = grid[0].length;
   let cells = "";
   for(let r=0;r<grid.length;r++){
     for(let c=0;c<grid[0].length;c++){
       let cls = "cell";
-      if(kind === "target"){
-        if(state.target[r][c]) cls += " tgt";
-      } else if(kind === "speakerDesign"){
-        const d = grid[r][c], t = state.target[r][c];
-        if(d && t) cls += " filled";
-        else if(d && !t) cls += " extra";
-        else if(!d && t) cls += " missing";
-      } else {
-        if(grid[r][c]) cls += " filled";
-      }
+      if(grid[r][c]) cls += " filled";
       cells += `<div class="${cls}" data-r="${r}" data-c="${c}"></div>`;
     }
   }
@@ -986,26 +970,11 @@ function gridHTML(grid, opts={}){
   return `<div class="grid ${liveCls}"${editAttr} style="grid-template-columns:repeat(${n},1fr)">${cells}</div>`;
 }
 
-function trajectoryHTML(){
-  const pts = [1.0, ...state.rounds.map(r => r.normAfter)];
-  const W = 400, H = 56, pad = 4;
-  const maxY = Math.max(1.0, ...pts);
-  const n = pts.length;
-  const x = i => n<=1 ? W/2 : pad + i*(W-2*pad)/(n-1);
-  const y = v => H-pad - (v/maxY)*(H-2*pad);
-  const poly = pts.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  const dots = pts.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3" fill="var(--accent)"/>`).join("");
-  return `<svg class="traj" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-    <line x1="${pad}" y1="${y(0)}" x2="${W-pad}" y2="${y(0)}" stroke="var(--ok)" stroke-dasharray="3 3" stroke-width="1" opacity=".5"/>
-    <polyline points="${poly}" fill="none" stroke="var(--add)" stroke-width="2"/>${dots}
-  </svg>`;
-}
-
-/* Speaker's view of the target: icon A (if available and SPEAKER_SEES==='A'),
-   otherwise the 12x12 grid B. Scoring always uses state.target (B) regardless. */
+/* Speaker stimulus: source icon A only. Grid B stays hidden and is used only
+   for internal scoring. There is deliberately no grid fallback. */
 function targetStimulusHTML(){
   const p = PATTERNS[state.patternId];
-  if(SPEAKER_SEES === "A" && p && p.iconDataUri){
+  if(p && p.iconDataUri){
     const source = p.source;
     const credit = source && source.author && source.sourceUrl
       ? `<div class="icon-credit">Icon by ${source.authorUrl
@@ -1013,30 +982,28 @@ function targetStimulusHTML(){
           : escapeHtml(source.author)} · <a href="${escapeHtml(source.sourceUrl)}" target="_blank" rel="noopener noreferrer">Flaticon</a></div>`
       : "";
     return `<div class="stimA-wrap">
-      <img class="stimA" src="${p.iconDataUri}" alt="target icon">
+      <img class="stimA" src="${p.iconDataUri}" alt="source icon">
       <div class="sub" style="margin-top:6px;">Goal: guide the Listener to a 12×12 bead version of this.</div>
       ${credit}
     </div>`;
   }
-  return gridHTML(state.target, {kind:"target"});
+  return `<div class="empty-note">Source image unavailable. Please choose another pattern.</div>`;
 }
 
 function speakerPanel(){
   const netBlock = MODE === "online" && !net.connected;
   const canSend = state.phase === "speaker_turn" && !netBlock;
   const predicting = state.phase === "speaker_predict";
-  const h = hamming(state.committed, state.target);
-  const nd = normDist(state.committed);
-  const ndCls = nd===0 ? "good" : nd<0.4 ? "mid" : "bad";
+  const lastRound = state.rounds[state.rounds.length - 1];
   const hist = state.rounds.length
     ? state.rounds.map(r => {
-        const extra = (r.predHamming != null)
-          ? ` · <span title="your forecast vs the target">P=${r.predHamming}</span> · <span title="forecast vs what the Listener actually built">Δ=${r.predListenerGap}</span>`
+        const gap = (r.predListenerGap != null)
+          ? `<span title="forecast vs what the Listener actually built">Δ=${r.predListenerGap}</span>`
           : "";
         return `<div class="hrow"><span class="n">${r.round}</span>
           <span class="t" title="${escapeHtml(r.instruction)}">${escapeHtml(r.instruction)}</span>
           <span class="a">${r.nActions} ops</span>
-          <span class="d">H=${r.hammingAfter}${extra}</span></div>`;
+          <span class="d">${gap}</span></div>`;
       }).join("")
     : `<div class="empty-note">No completed rounds yet.</div>`;
 
@@ -1064,28 +1031,27 @@ function speakerPanel(){
   }
 
   return `<div class="panel">
-    <h2><span class="tag sp">SPEAKER</span> Target &amp; progress</h2>
-    <div class="sub">Only you can see the target. You see the Listener's progress only after each submission (errors highlighted).</div>
+    <h2><span class="tag sp">SPEAKER</span> Source image &amp; progress</h2>
+    <div class="sub">Only you can see the source image. The converted 12×12 answer stays hidden; submitted boards are shown without answer-position highlights.</div>
     <div class="row" style="align-items:flex-start; gap:14px;">
       <div style="flex:1;">
-        <div class="sub" style="margin:0 0 6px;">TARGET (what to convey)</div>
+        <div class="sub" style="margin:0 0 6px;">SOURCE IMAGE (what to convey)</div>
         ${targetStimulusHTML()}
       </div>
       <div style="flex:1;">
         <div class="sub" style="margin:0 0 6px;">${predicting ? "Listener's board so far" : "Listener submitted"}</div>
-        ${gridHTML(state.committed, {kind:"speakerDesign"})}
+        ${gridHTML(state.committed)}
       </div>
     </div>
     <div class="stats">
-      <div class="stat"><div class="k">HAMMING</div><div class="v ${ndCls}">${h}</div></div>
-      <div class="stat"><div class="k">NORM. DIST</div><div class="v ${ndCls}">${nd.toFixed(2)}</div></div>
+      <div class="stat"><div class="k">LISTENER BEADS</div><div class="v">${count(state.committed)}</div></div>
+      <div class="stat"><div class="k">LAST Δ</div><div class="v">${lastRound && lastRound.predListenerGap != null ? lastRound.predListenerGap : "—"}</div></div>
       <div class="stat"><div class="k">ROUNDS DONE</div><div class="v">${state.rounds.length}</div></div>
     </div>
-    ${state.rounds.length ? `<div class="sub" style="margin:2px 0 -4px;">Normalized-distance trajectory (dashed = 0)</div>${trajectoryHTML()}` : ""}
     <div class="divider"></div>
     ${actionBlock}
     <div class="divider"></div>
-    <div class="sub" style="margin:0;">History <span style="color:var(--muted); font-weight:400;">· H = vs target · P = forecast vs target · Δ = forecast vs actual</span></div>
+    <div class="sub" style="margin:0;">History <span style="color:var(--muted); font-weight:400;">· Δ = forecast vs actual</span></div>
     <div class="hist">${hist}</div>
   </div>`;
 }
@@ -1270,14 +1236,14 @@ const TUTORIAL = [
   { title: "Welcome 👋",
     body: "This is a two-person picture game. Together you'll rebuild a hidden picture over a few short rounds. The tour takes about a minute and lets you <b>try both roles</b> — click <b>Next</b> to begin." },
   { title: "Two roles",
-    body: "One player is the <b>Speaker</b>, who sees the target picture and describes it in words. The other is the <b>Listener</b>, who <b>never sees the target</b> and places beads only from the description. You'll be told your role." },
+    body: "One player is the <b>Speaker</b>, who sees only the source image and describes it in words. The other is the <b>Listener</b>, who sees neither the source image nor the bead answer and places beads only from the description. You'll be told your role." },
   { title: "One round at a time",
     body: "1. The Speaker writes <b>one instruction</b> and sends it.<br>2. The Speaker then <b>draws what they expect</b> the Listener to build.<br>3. The Listener places beads by <b>clicking cells</b> (click again = remove) and clicks <b>Submit</b>.<br>4. Only then does the Speaker see the Listener's board — and how it compares to their forecast." },
   { title: "Try it — you're the Speaker",
-    body: "Here's your target picture. First <b>type one instruction</b> to describe it, then send it. Next you'll draw what you expect the Listener to build.",
+    body: "Here's your source image. First <b>type one instruction</b> to describe it, then send it. Next you'll draw what you expect the Listener to build.",
     practice: "speaker" },
   { title: "Now you're the Listener",
-    body: "You <b>can't see the target</b> — just follow the words. The Speaker said:",
+    body: "You <b>can't see the source image or bead answer</b> — just follow the words. The Speaker said:",
     practice: "listener",
     instruction: "Fill the whole top row and the whole left column (an L-shape).",
     target: TUT_L_SHAPE },
@@ -1441,29 +1407,43 @@ document.getElementById("copyLink").onclick = () => {
 /* ================================================================== */
 /*  Export                                                             */
 /* ================================================================== */
+function exportableRounds(){
+  return state.rounds.map(r => ({
+    round: r.round,
+    instruction: r.instruction,
+    tSent: r.tSent,
+    tSubmitted: r.tSubmitted,
+    actions: r.actions,
+    nActions: r.nActions,
+    beadsAfter: r.beadsAfter,
+    designAfter: r.designAfter,
+    prediction: r.prediction,
+    predBeads: r.predBeads,
+    predListenerGap: r.predListenerGap,
+    predActions: r.predActions,
+  }));
+}
+
 function exportJSON(){
-  const onlineListener = MODE === "online" && myRole === "listener";   // only they truly lack the target
   const payload = {
     exportedAt: new Date().toISOString(),
     mode: MODE, role: myRole, roomCode: net.code,
     patternId: state.patternId,
     patternName: state.patternId ? PATTERNS[state.patternId]?.name : null,
     gridSize: {rows: state.target.length, cols: state.target[0].length},
-    targetBeadCount: onlineListener ? null : count(state.target),
-    target: onlineListener ? null : state.target,   // Listener never holds the real target
+    targetBeadCount: null,
+    target: null,
     finalDesign: state.committed,
-    finalHamming: onlineListener ? null : hamming(state.committed, state.target),
+    finalHamming: null,
     startedAt: state.startedAt,
     speakerSees: SPEAKER_SEES,
     appVersion: APP_VERSION,
-    snapshots: {                                    // PNG data-URIs — no conversion needed later
-      target: onlineListener ? null : gridToDataURL(state.target),
+    snapshots: {
+      target: null,
       finalDesign: gridToDataURL(state.committed),
     },
-    rounds: state.rounds,
+    rounds: exportableRounds(),
   };
-  if(onlineListener)
-    toast("Note: full session data (target, Hamming) lives on the Speaker's side");
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -1473,24 +1453,17 @@ function exportJSON(){
 }
 
 /* ================================================================== */
-/*  PNG export — a visual record of the session that needs no          */
-/*  conversion. paintGrid() draws a bead grid onto a canvas; the sheet  */
-/*  stacks the target + each round's forecast-vs-actual side by side.   */
+/*  Target-free PNG export. The sheet includes only the Speaker's       */
+/*  forecast and the Listener's actual board; grid B is never drawn.    */
 /* ================================================================== */
 function paintGrid(ctx, grid, x0, y0, opts={}){
-  const {cell=16, gap=2, on="#5aa9e6", off="#0c0f14", bg="#262b35", diffTarget=null} = opts;
+  const {cell=16, gap=2, on="#5aa9e6", off="#0c0f14", bg="#262b35"} = opts;
   const rows = grid.length, colsN = grid[0].length;
   const W = colsN*cell + (colsN+1)*gap, H = rows*cell + (rows+1)*gap;
   ctx.fillStyle = bg; ctx.fillRect(x0, y0, W, H);
   for(let r=0;r<rows;r++) for(let c=0;c<colsN;c++){
     const x = x0+gap+c*(cell+gap), y = y0+gap+r*(cell+gap);
-    let color = off;
-    if(diffTarget){
-      const d = grid[r][c], t = diffTarget[r][c];
-      if(d && t) color = on;                 // correct bead
-      else if(d && !t) color = "#E05656";    // extra
-      else if(!d && t) color = "#26405a";    // missing
-    } else if(grid[r][c]) color = on;
+    const color = grid[r][c] ? on : off;
     ctx.fillStyle = color; ctx.fillRect(x, y, cell, cell);
   }
   return {w: W, h: H};
@@ -1508,17 +1481,17 @@ function downloadDataURI(uri, name){
 }
 function exportPNGSheet(){
   const onlineListener = MODE === "online" && myRole === "listener";
-  if(onlineListener){   // the Listener holds no target/forecast — just their own board
+  if(onlineListener){
     downloadDataURI(gridToDataURL(state.committed), `perler_listener_board_${Date.now()}.png`);
-    toast("Exported your board — target & forecast live on the Speaker's side");
+    toast("Exported your board");
     return;
   }
-  const target = state.target, rounds = state.rounds;
+  const board = state.committed, rounds = state.rounds;
   const cell = 12, gap = 2, pad = 18, colGap = 24, labelH = 18, rowGap = 18, titleH = 24;
-  const gw = target[0].length*cell + (target[0].length+1)*gap;
-  const gh = target.length*cell + (target.length+1)*gap;
-  const W = pad*2 + Math.max(gw, gw*2 + colGap);
-  const H = pad + titleH + labelH + gh + rowGap + rounds.length*(labelH + gh + rowGap) + pad;
+  const gw = board[0].length*cell + (board[0].length+1)*gap;
+  const gh = board.length*cell + (board.length+1)*gap;
+  const W = pad*2 + (rounds.length ? gw*2 + colGap : gw);
+  const H = pad + titleH + Math.max(1, rounds.length)*(labelH + gh + rowGap) + pad;
   const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
   const ctx = cv.getContext("2d");
   ctx.fillStyle = "#0f1115"; ctx.fillRect(0, 0, W, H);
@@ -1527,16 +1500,18 @@ function exportPNGSheet(){
   ctx.fillText(PATTERNS[state.patternId]?.name || state.patternId || "session", pad, pad);
   let y = pad + titleH;
   ctx.fillStyle = "#9aa4b2"; ctx.font = "12px -apple-system,Segoe UI,sans-serif";
-  ctx.fillText("TARGET (B)", pad, y); y += labelH;
-  paintGrid(ctx, target, pad, y, {cell, gap, on:"#5aa9e6"}); y += gh + rowGap;
+  if(!rounds.length){
+    ctx.fillText("LISTENER BOARD (no completed rounds)", pad, y); y += labelH;
+    paintGrid(ctx, board, pad, y, {cell, gap});
+  }
   for(const r of rounds){
     ctx.fillStyle = "#9aa4b2"; ctx.font = "12px -apple-system,Segoe UI,sans-serif";
-    const line = `Round ${r.round}   H=${r.hammingAfter}` +
-      (r.predHamming != null ? `   P=${r.predHamming}   Δ=${r.predListenerGap}` : "") +
-      "     (left: forecast · right: actual)";
+    const line = `Round ${r.round}` +
+      (r.predListenerGap != null ? `   Δ=${r.predListenerGap}` : "") +
+      "     (left: forecast · right: Listener board)";
     ctx.fillText(line, pad, y); y += labelH;
     if(r.prediction) paintGrid(ctx, r.prediction, pad, y, {cell, gap, on:"#F2A63B"});
-    if(r.designAfter) paintGrid(ctx, r.designAfter, pad + gw + colGap, y, {cell, gap, diffTarget: target});
+    if(r.designAfter) paintGrid(ctx, r.designAfter, pad + gw + colGap, y, {cell, gap});
     y += gh + rowGap;
   }
   downloadDataURI(cv.toDataURL("image/png"), `perler_sheet_${state.patternId||"session"}_${Date.now()}.png`);
