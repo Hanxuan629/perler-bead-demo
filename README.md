@@ -1,9 +1,11 @@
 # 拼豆实验 · Perler Bead Pilot
 
-A single-file, two-role iterative-communication task (Speaker describes a target
-bead pattern round by round; Listener reconstructs it on a blank grid). Built as a
-pilot demo for studying step-vs-gap convergence dynamics in human communication.
+A two-role, multi-round communication experiment. The Speaker sees a normal source image; the Listener reconstructs it from confirmed text. After both participants end communication, the source is revealed and they create a blank-initialized 12×12 pair consensus together.
 
-**Play it:** open the GitHub Pages link. Use the **双屏 Both** view to try it solo.
+Files:
 
-No backend — state is kept in `localStorage`; export a session as JSON from the toolbar.
+- `index.html`: participant experiment
+- `experiment_v2.js`: transcription, trial, ending, and consensus flow
+- `research_dashboard.html`: researcher timeline and JSON/API import
+
+This GitHub Pages build supports manual text, peer-to-peer rooms, JSON export, and dashboard imports. Chinese/English voice transcription and centralized collection require the separate experiment server, supplied with the `?api=https://server.example` query parameter. No API or researcher secret belongs in this repository.

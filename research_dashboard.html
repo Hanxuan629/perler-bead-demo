@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Perler Trial · 研究者结果页</title>
+  <style>
+    :root{
+      --ink:#18222f;
+      --muted:#667182;
+      --paper:#f4f1e9;
+      --panel:#fffdf8;
+      --line:#d9d5ca;
+      --blue:#325bff;
+      --blue-soft:#e9edff;
+      --mint:#19a77b;
+      --mint-soft:#dff6ee;
+      --coral:#e45f52;
+      --coral-soft:#fde7e3;
+      --gold:#c88710;
+      --shadow:0 12px 35px rgba(24,34,47,.09);
+      --radius:18px;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:var(--paper);color:var(--ink)}
+    body{min-height:100vh}
+    button,input,select{font:inherit}
+    button{cursor:pointer}
+    button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:3px solid rgba(50,91,255,.28);outline-offset:2px}
+    .topbar{
+      min-height:76px;padding:15px 22px;display:flex;align-items:center;gap:20px;
+      border-bottom:1px solid var(--line);background:rgba(255,253,248,.96);position:sticky;top:0;z-index:50;
+    }
+    .brand{display:flex;align-items:center;gap:12px;min-width:max-content}
+    .brandmark{width:42px;height:42px;border:2px solid var(--ink);border-radius:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:6px;background:var(--panel);box-shadow:3px 3px 0 var(--ink)}
+    .brandmark i{display:block;border-radius:3px;background:var(--blue)}
+    .brandmark i:nth-child(2),.brandmark i:nth-child(6){background:var(--coral)}
+    .brandmark i:nth-child(4),.brandmark i:nth-child(8){background:var(--mint)}
+    .brand h1{font-size:16px;line-height:1.05;margin:0;letter-spacing:.01em}
+    .brand small{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-top:5px;letter-spacing:.08em;text-transform:uppercase}
+    .top-actions{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+    .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:11px;padding:9px 13px;font-weight:750;box-shadow:0 2px 0 rgba(24,34,47,.04)}
+    .btn:hover{border-color:#aaa69c;background:#fff}
+    .btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+    .btn.primary:hover{background:#264be0}
+    .btn:disabled{opacity:.42;cursor:not-allowed}
+    .file-button{position:relative;overflow:hidden}
+    .file-button input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+    .api-wrap{position:relative}
+    .api-popover{position:absolute;right:0;top:calc(100% + 9px);width:min(440px,calc(100vw - 28px));padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow);display:none;z-index:80}
+    .api-popover.open{display:block}
+    .api-popover h2{font-size:14px;margin:0 0 4px}
+    .api-popover p{font-size:12px;line-height:1.5;color:var(--muted);margin:0 0 12px}
+    .field{display:grid;gap:5px;margin:9px 0}
+    .field label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+    .input{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;padding:9px 10px;color:var(--ink)}
+    .api-row{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
+    .statusbar{min-height:37px;padding:8px 22px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;background:#ebe7dd}
+    .status-dot{width:8px;height:8px;border-radius:50%;background:var(--mint);flex:0 0 auto}
+    .statusbar.error{color:#9e3027;background:var(--coral-soft)}
+    .statusbar.error .status-dot{background:var(--coral)}
+    .layout{display:grid;grid-template-columns:310px minmax(0,1fr);height:calc(100vh - 114px);min-height:560px}
+    .sidebar{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+    .filters{padding:16px;border-bottom:1px solid var(--line);display:grid;gap:10px}
+    .search-wrap{position:relative}
+    .search-wrap::before{content:"⌕";position:absolute;left:11px;top:7px;color:var(--muted);font-size:20px;line-height:1}
+    .search-wrap .input{padding-left:34px}
+    .filter-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .countline{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+    .trial-list{padding:9px;overflow:auto;display:grid;align-content:start;gap:7px}
+    .trial-item{width:100%;text-align:left;border:1px solid transparent;border-radius:13px;padding:11px;background:transparent;color:var(--ink)}
+    .trial-item:hover{background:#f4f2eb;border-color:var(--line)}
+    .trial-item.active{background:var(--blue-soft);border-color:#aebcff}
+    .trial-head{display:flex;align-items:flex-start;gap:8px}
+    .trial-id{font-size:13px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+    .status-pill{font-size:9px;font-weight:850;padding:3px 6px;border-radius:999px;text-transform:uppercase;letter-spacing:.05em;background:#ece9e0;color:var(--muted);white-space:nowrap}
+    .status-pill.complete{background:var(--mint-soft);color:#087756}
+    .status-pill.revealed{background:#fff0d5;color:#8c5700}
+    .status-pill.active{background:var(--blue-soft);color:#2347cf}
+    .trial-meta{font-size:11px;color:var(--muted);margin-top:7px;display:flex;gap:6px;flex-wrap:wrap}
+    .main{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+    .empty{height:100%;display:grid;place-items:center;padding:28px}
+    .empty-card{max-width:570px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:34px;box-shadow:var(--shadow)}
+    .empty-graphic{width:156px;margin:0 auto 22px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:center}
+    .empty-graphic span{height:58px;border:2px solid var(--ink);border-radius:12px;background:var(--blue-soft);box-shadow:4px 4px 0 var(--ink)}
+    .empty-graphic span:nth-child(2){height:78px;background:var(--mint-soft)}
+    .empty-graphic span:nth-child(3){background:var(--coral-soft)}
+    .empty h2{font-size:22px;margin:0 0 9px}
+    .empty p{color:var(--muted);line-height:1.65;margin:0 0 18px;font-size:14px}
+    .schema-note{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;background:#eeebe3;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:left;color:#5b6471;overflow:auto}
+    .detail{height:100%;display:none;flex-direction:column;min-height:0}
+    .detail.visible{display:flex}
+    .detail-head{padding:17px 20px 13px;display:flex;align-items:flex-start;gap:16px;border-bottom:1px solid var(--line);background:var(--panel)}
+    .detail-title{min-width:0;flex:1}
+    .eyebrow{font-size:10px;color:var(--blue);font-weight:900;letter-spacing:.11em;text-transform:uppercase}
+    .detail-title h2{margin:4px 0 7px;font-size:22px;line-height:1.15;overflow-wrap:anywhere}
+    .chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .chip{font-size:11px;color:#596474;background:#eeebe3;border-radius:999px;padding:4px 8px;border:1px solid #e1ddd3}
+    .detail-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .timeline-wrap{min-height:0;flex:1;position:relative;background-color:var(--paper);background-image:linear-gradient(#dedad0 1px,transparent 1px),linear-gradient(90deg,#dedad0 1px,transparent 1px);background-size:24px 24px;overflow:hidden}
+    .timeline{height:100%;overflow:auto;display:flex;align-items:flex-start;gap:18px;padding:22px 22px 42px;scroll-padding:22px}
+    .timeline::after{content:"";width:1px;align-self:stretch;flex:0 0 1px}
+    .stage{position:relative;flex:0 0 294px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:15px;min-height:438px}
+    .stage::after{content:"→";position:absolute;right:-16px;top:48px;width:14px;color:#8e928f;font-weight:900;text-align:center}
+    .stage:last-of-type::after{display:none}
+    .endpoint{flex-basis:268px;border:2px solid var(--ink);z-index:6}
+    .endpoint.target{position:sticky;left:0;box-shadow:7px 7px 0 rgba(24,34,47,.16);z-index:12}
+    .endpoint.consensus{position:sticky;right:0;border-color:var(--mint);box-shadow:-7px 7px 0 rgba(25,167,123,.16);z-index:11}
+    .endpoint.consensus::after{display:none}
+    .stage-kicker{font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .round-num{color:var(--blue)}
+    .stage h3{font-size:16px;line-height:1.25;margin:6px 0 13px}
+    .source-frame{height:228px;border:1px solid var(--line);border-radius:14px;background:#fff;display:grid;place-items:center;overflow:hidden;position:relative}
+    .source-frame img{width:100%;height:100%;object-fit:contain;padding:16px}
+    .source-fallback{width:134px;height:134px;border:2px dashed #a6a197;border-radius:24px;display:grid;place-items:center;background:#f4f1e9;color:var(--muted);font-size:12px;text-align:center;padding:16px;line-height:1.45}
+    .source-fallback strong{display:block;font-size:38px;line-height:1;color:var(--blue);margin-bottom:8px;text-transform:uppercase}
+    .source-caption{font-size:12px;color:var(--muted);line-height:1.5;margin-top:13px}
+    .speech{border-left:3px solid var(--blue);padding-left:10px;margin:0 0 13px}
+    .speech-row{margin-bottom:9px}
+    .speech-label{display:block;font-size:9px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+    .speech-text{font-size:12px;line-height:1.48;overflow-wrap:anywhere;white-space:pre-wrap}
+    .speech-text.raw{color:var(--muted);font-size:11px}
+    .board-title{font-size:10px;font-weight:850;color:var(--muted);display:flex;align-items:center;justify-content:space-between;margin:8px 0 6px;text-transform:uppercase;letter-spacing:.04em}
+    .board-shell{display:flex;justify-content:center}
+    .board{--size:188px;width:var(--size);height:var(--size);display:grid;grid-template-columns:repeat(12,1fr);grid-template-rows:repeat(12,1fr);gap:2px;padding:5px;background:#d9d5cb;border:1px solid #c4bfb4;border-radius:11px;box-shadow:inset 0 1px 2px rgba(24,34,47,.08)}
+    .cell{min-width:0;min-height:0;border-radius:2px;background:#f8f6ef;position:relative}
+    .cell.on{background:var(--blue)}
+    .cell.added{background:var(--mint);box-shadow:inset 0 0 0 1px #087453}
+    .cell.removed{background:var(--coral-soft);box-shadow:inset 0 0 0 2px var(--coral)}
+    .cell.removed::before,.cell.removed::after{content:"";position:absolute;left:18%;right:18%;top:47%;height:1px;background:var(--coral);transform:rotate(45deg)}
+    .cell.removed::after{transform:rotate(-45deg)}
+    .prediction .cell.on{background:#8d71d8}
+    .consensus-grid .cell.on{background:var(--mint)}
+    .legend{display:flex;align-items:center;justify-content:center;gap:10px;font-size:9px;color:var(--muted);margin-top:7px;min-height:13px}
+    .legend span{display:inline-flex;align-items:center;gap:4px}
+    .swatch{width:8px;height:8px;border-radius:2px;background:var(--mint)}
+    .swatch.remove{background:var(--coral-soft);border:1px solid var(--coral)}
+    .prediction-block{margin-top:13px;padding-top:12px;border-top:1px dashed var(--line)}
+    .prediction-block .board{--size:146px;gap:1px;padding:4px;border-radius:8px}
+    .bead-count{font-size:10px;color:var(--muted);text-align:center;margin-top:8px}
+    .missing-board{height:190px;border:1px dashed #bbb6aa;border-radius:12px;display:grid;place-items:center;color:var(--muted);font-size:12px;text-align:center;padding:18px;background:#f7f4ed}
+    .timeline-help{position:absolute;right:18px;bottom:12px;z-index:20;background:rgba(255,253,248,.92);border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:10px;color:var(--muted);pointer-events:none}
+    .drop-overlay{position:fixed;inset:0;background:rgba(50,91,255,.13);border:5px dashed var(--blue);z-index:100;display:none;place-items:center;pointer-events:none}
+    .drop-overlay.show{display:grid}
+    .drop-message{background:var(--panel);border:2px solid var(--ink);border-radius:18px;padding:22px 30px;font-size:18px;font-weight:850;box-shadow:8px 8px 0 var(--ink)}
+    .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,16px);background:var(--ink);color:#fff;padding:10px 15px;border-radius:999px;font-size:12px;z-index:150;opacity:0;pointer-events:none;transition:.2s ease;max-width:min(500px,calc(100vw - 30px));text-align:center}
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+    .visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+    @media(max-width:860px){
+      .topbar{align-items:flex-start;gap:10px;padding:12px 14px}.brand small{display:none}.top-actions{gap:6px}.btn{padding:8px 10px;font-size:12px}
+      .statusbar{padding-left:14px}.layout{grid-template-columns:230px}.stage{flex-basis:275px}.endpoint{flex-basis:245px}
+    }
+    @media(max-width:650px){
+      .topbar{position:static;display:grid;grid-template-columns:1fr}.top-actions{margin:0;justify-content:flex-start}.statusbar{padding:7px 12px}
+      .layout{display:flex;flex-direction:column;height:auto;min-height:calc(100vh - 146px)}
+      .sidebar{border-right:0;border-bottom:1px solid var(--line);max-height:282px}.filters{padding:11px}.trial-list{display:flex;overflow:auto;padding:8px}.trial-item{flex:0 0 220px}
+      .main{min-height:620px}.detail-head{padding:13px;display:grid}.detail-title h2{font-size:18px}.detail-actions{justify-content:flex-start}
+      .timeline-wrap{min-height:535px}.timeline{padding:15px 13px 38px;gap:13px}.stage{flex-basis:260px;padding:13px;min-height:420px}
+      .endpoint.target,.endpoint.consensus{position:relative;left:auto;right:auto}.timeline-help{left:50%;right:auto;transform:translateX(-50%);white-space:nowrap}
+      .empty{min-height:610px;padding:15px}.empty-card{padding:25px 18px}.api-popover{position:fixed;top:90px;right:14px}
+    }
+    @media(prefers-reduced-motion:reduce){.toast{transition:none}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" aria-label="Perler Trial Research">
+      <span class="brandmark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span><h1>Perler Trial</h1><small>Research console</small></span>
+    </div>
+    <div class="top-actions">
+      <label class="btn primary file-button">＋ 导入 JSON<input id="fileInput" type="file" accept="application/json,.json" multiple aria-label="导入一个或多个实验 JSON"></label>
+      <div class="api-wrap">
+        <button class="btn" id="apiToggle" type="button" aria-expanded="false" aria-controls="apiPanel">从 API 加载</button>
+        <section class="api-popover" id="apiPanel" aria-label="API 设置">
+          <h2>研究数据 API</h2>
+          <p>可选功能。Token 只保存在当前页面内存中，不会写入浏览器存储。</p>
+          <div class="field"><label for="apiUrl">API URL</label><input class="input" id="apiUrl" type="url" placeholder="https://example.org/api/trials" autocomplete="url"></div>
+          <div class="field"><label for="apiToken">Researcher token</label><input class="input" id="apiToken" type="password" placeholder="Bearer token" autocomplete="off"></div>
+          <div class="api-row"><button class="btn" id="apiCancel" type="button">取消</button><button class="btn primary" id="apiLoad" type="button">加载 trials</button></div>
+        </section>
+      </div>
+      <button class="btn" id="downloadAll" type="button" disabled>下载全部</button>
+    </div>
+  </header>
+
+  <div class="statusbar" id="statusbar" role="status" aria-live="polite"><span class="status-dot"></span><span id="statusText">等待导入 perler-trial/v1 数据</span></div>
+
+  <div class="layout">
+    <aside class="sidebar" aria-label="Trials">
+      <div class="filters">
+        <div class="search-wrap"><label class="visually-hidden" for="searchInput">搜索 trial</label><input class="input" id="searchInput" type="search" placeholder="搜索 ID、图案或文字…"></div>
+        <div class="filter-row">
+          <div><label class="visually-hidden" for="statusFilter">状态</label><select class="input" id="statusFilter"><option value="all">全部状态</option><option value="active">进行中</option><option value="revealed">已揭示</option><option value="complete">已完成</option></select></div>
+          <div><label class="visually-hidden" for="sortOrder">排序</label><select class="input" id="sortOrder"><option value="newest">最近更新</option><option value="oldest">最早开始</option><option value="rounds">轮数最多</option></select></div>
+        </div>
+        <div class="countline"><span id="trialCount">0 trials</span><span>可拖入多个文件</span></div>
+      </div>
+      <div class="trial-list" id="trialList"></div>
+    </aside>
+
+    <main class="main">
+      <section class="empty" id="emptyState">
+        <div class="empty-card">
+          <div class="empty-graphic" aria-hidden="true"><span></span><span></span><span></span></div>
+          <h2>把完整实验轨迹放到一条线上</h2>
+          <p>导入一个或多个实验文件，即可对照正常 Target、每轮 Speaker 指令、Listener 棋盘、揭示前结果和双方最终共识。</p>
+          <label class="btn primary file-button">选择 JSON 文件<input type="file" accept="application/json,.json" multiple data-file-picker aria-label="选择实验 JSON 文件"></label>
+          <div class="schema-note" style="margin-top:18px">{ "schemaVersion": "perler-trial/v1", "trialId": "…", "source": { … }, "rounds": [ … ] }</div>
+        </div>
+      </section>
+
+      <section class="detail" id="detailView" aria-label="Trial 详情">
+        <div class="detail-head">
+          <div class="detail-title"><div class="eyebrow">Selected trial</div><h2 id="detailName">—</h2><div class="chips" id="detailChips"></div></div>
+          <div class="detail-actions"><button class="btn" id="downloadSelected" type="button">下载所选 JSON</button></div>
+        </div>
+        <div class="timeline-wrap">
+          <div class="timeline" id="timeline" tabindex="0" aria-label="按时间横向排列的实验轨迹"></div>
+          <div class="timeline-help">按 Shift + 滚轮或左右拖动查看完整轨迹</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="drop-overlay" id="dropOverlay"><div class="drop-message">松开即可导入实验 JSON</div></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+  (() => {
+    "use strict";
+
+    const GRID_SIZE = 12;
+    const state = { trials: [], selectedId: null, query: "", status: "all", sort: "newest" };
+    const $ = (id) => document.getElementById(id);
+    const els = {
+      fileInput: $("fileInput"), apiToggle: $("apiToggle"), apiPanel: $("apiPanel"), apiUrl: $("apiUrl"), apiToken: $("apiToken"),
+      apiLoad: $("apiLoad"), apiCancel: $("apiCancel"), downloadAll: $("downloadAll"), statusbar: $("statusbar"), statusText: $("statusText"),
+      search: $("searchInput"), statusFilter: $("statusFilter"), sortOrder: $("sortOrder"), trialCount: $("trialCount"), trialList: $("trialList"),
+      empty: $("emptyState"), detail: $("detailView"), detailName: $("detailName"), detailChips: $("detailChips"), timeline: $("timeline"),
+      downloadSelected: $("downloadSelected"), dropOverlay: $("dropOverlay"), toast: $("toast")
+    };
+
+    function escapeHTML(value){
+      return String(value ?? "").replace(/[&<>\"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#39;"})[ch]);
+    }
+    function firstValue(...values){ return values.find((v) => v !== undefined && v !== null && v !== ""); }
+    function asText(value){ return value === undefined || value === null ? "" : String(value); }
+    function objectAt(root, path){ return path.split(".").reduce((value, key) => value && typeof value === "object" ? value[key] : undefined, root); }
+    function firstPath(root, paths){ return firstValue(...paths.map((path) => objectAt(root, path))); }
+    function safeImageUrl(value){
+      if(typeof value !== "string") return "";
+      const url = value.trim();
+      if(/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[a-z0-9+/=\s]+$/i.test(url)) return url;
+      try{ const parsed = new URL(url, location.href); return ["http:","https:","blob:"].includes(parsed.protocol) ? parsed.href : ""; }catch(_){ return ""; }
+    }
+    function slug(value){ return String(value || "trial").replace(/[^a-z0-9_.-]+/gi,"_").slice(0,80) || "trial"; }
+    function parseDate(value){ const ms = typeof value === "number" ? value : Date.parse(value); return Number.isFinite(ms) ? ms : 0; }
+    function formatDate(value){
+      const ms = parseDate(value); if(!ms) return "时间未记录";
+      return new Intl.DateTimeFormat("zh-CN", {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(ms);
+    }
+    function formatDuration(start, end){
+      const a = parseDate(start), b = parseDate(end); if(!a || !b || b < a) return "";
+      const secs = Math.round((b-a)/1000); if(secs < 60) return `${secs} 秒`;
+      const mins = Math.floor(secs/60), rest = secs%60; return `${mins}分${rest ? rest+"秒" : ""}`;
+    }
+    function normalizeCell(value){
+      if(typeof value === "string") return /^(?:1|#|x|on|true|●|■)$/i.test(value.trim()) ? 1 : 0;
+      return value ? 1 : 0;
+    }
+    function normalizeRows(value){
+      if(value && typeof value === "object" && !Array.isArray(value)) value = firstValue(value.rows, value.grid, value.cells, value.design);
+      if(!Array.isArray(value) || value.length !== GRID_SIZE) return null;
+      const rows = [];
+      for(const row of value){
+        if(typeof row === "string"){
+          if(row.length !== GRID_SIZE) return null;
+          rows.push(Array.from(row, (ch) => /[#1xX@●■]/.test(ch) ? 1 : 0));
+        }else if(Array.isArray(row) && row.length === GRID_SIZE){ rows.push(row.map(normalizeCell)); }
+        else return null;
+      }
+      return rows;
+    }
+    function rowsToStrings(grid){ return grid ? grid.map((row) => row.map((cell) => cell ? "#" : ".").join("")) : null; }
+    function beadCount(grid){ return grid ? grid.reduce((sum,row) => sum + row.reduce((a,b) => a+b,0),0) : 0; }
+
+    function collectPayload(payload, sourceLabel){
+      if(Array.isArray(payload)) return payload.map((trial) => ({trial, sourceLabel}));
+      if(payload && Array.isArray(payload.trials)) return payload.trials.map((trial) => ({trial, sourceLabel}));
+      if(payload && Array.isArray(payload.data)) return payload.data.map((trial) => ({trial, sourceLabel}));
+      return [{trial: payload, sourceLabel}];
+    }
+
+    function normalizeTrial(raw, sourceLabel, ordinal){
+      if(!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("trial 必须是 JSON object");
+      const schemaVersion = firstValue(raw.schemaVersion, raw.schema);
+      if(schemaVersion !== "perler-trial/v1") throw new Error(`不支持的 schema：${schemaVersion || "缺失"}`);
+      const id = asText(firstValue(raw.trialId, raw.trial_id, raw.id)).trim();
+      if(!id) throw new Error("缺少 trialId");
+      const rawRounds = Array.isArray(raw.rounds) ? raw.rounds : [];
+      const rounds = rawRounds.map((round, index) => {
+        const submitted = normalizeRows(firstPath(round, ["listener.submittedRows","listener.submittedGrid","listener.rows","submittedRows","listenerRows","designAfter","design_after"]));
+        const prediction = normalizeRows(firstPath(round, ["speakerPrediction.rows","speakerPrediction.grid","speaker.predictionRows","speaker.predictionGrid","speaker.prediction","predictionRows","prediction","predDesign","pred_design"]));
+        return {
+          number: Number(firstValue(round.round, round.roundNum, round.round_num, index+1)) || index+1,
+          sentText: asText(firstPath(round, ["instruction.sentText","instruction.sent_text","speaker.sentText","speaker.sent_text","sentText","sent_text","instructionText","transcript.final"])),
+          rawTranscript: asText(firstPath(round, ["instruction.rawTranscript","instruction.raw_transcript","speaker.rawTranscript","speaker.raw_transcript","rawTranscript","raw_transcript","instructionRaw","transcript.raw"])),
+          submitted, prediction,
+          startedAt: firstPath(round, ["instruction.recordingStartedAt","instruction.recording_started_at","instruction.sentAt","instruction.sent_at","startedAt","started_at","speaker.startedAt","speaker.started_at","tSent","t_sent"]),
+          submittedAt: firstPath(round, ["listener.submittedAt","listener.submitted_at","submittedAt","submitted_at","tSubmitted","t_submitted"]),
+          language: asText(firstPath(round, ["instruction.language","speaker.language","language"])),
+          source: round
+        };
+      }).sort((a,b) => a.number-b.number);
+      const sourceImage = safeImageUrl(firstPath(raw, [
+        "source.iconDataUri","source.imageUrl","source.image","sourceImage.dataUri","sourceImage.url","sourceImageUrl","source_image_url","sourceImage","target.sourceImage.dataUri","target.sourceImage.url",
+        "target.sourceImageUrl","target.imageUrl","target.image","stimulus.sourceImage","stimulus.imageUrl","pattern.iconDataUri","pattern.imageUrl"
+      ]));
+      const preReveal = normalizeRows(firstPath(raw, [
+        "ending.communicationFinalRows","ending.communicationFinalGrid","preRevealFinalRows","preRevealFinalGrid","preRevealFinalBoard","preReveal.rows","preReveal.grid","preRevealFinal.rows","preRevealFinal.grid",
+        "finalListenerRows","listenerFinalRows","finalListenerGrid","finalDesign"
+      ]));
+      const consensus = normalizeRows(firstPath(raw, [
+        "pairConsensusRows","pairConsensusGrid","pairConsensus.rows","pairConsensus.grid","consensus.rows","consensus.grid","finalConsensusRows","groundTruth.rows"
+      ]));
+      const explicitStatus = asText(firstValue(raw.status, raw.phase)).toLowerCase();
+      const targetRevealedAt = firstPath(raw,["ending.targetRevealedAt","ending.target_revealed_at","targetRevealedAt"]);
+      const status = consensus ? "complete" : preReveal || targetRevealedAt || /reveal|consensus|final/.test(explicitStatus) ? "revealed" : "active";
+      const sourceCredit = firstPath(raw,["source.attribution"]);
+      return {
+        id, sourceLabel, ordinal, raw,
+        sessionId: asText(firstValue(raw.sessionId, raw.session_id)),
+        patternId: asText(firstValue(raw.source && raw.source.id, raw.patternId, raw.pattern_id, raw.target && raw.target.id, raw.stimulus && raw.stimulus.id)),
+        patternName: asText(firstValue(raw.source && raw.source.name, raw.patternName, raw.pattern_name, raw.target && raw.target.name, raw.stimulus && raw.stimulus.name, raw.patternId, raw.pattern_id, "未命名 Target")),
+        pairLabel: asText(firstValue(raw.pairLabel, raw.pairId, raw.pair_id, raw.participants && raw.participants.label, raw.participantPair)),
+        startedAt: firstValue(raw.startedAt, raw.started_at, raw.createdAt, raw.created_at),
+        updatedAt: firstValue(raw.updatedAt, raw.updated_at, raw.completedAt, raw.completed_at, raw.exportedAt, raw.exported_at, raw.startedAt, raw.started_at),
+        status, rounds, sourceImage, preReveal, consensus,
+        endReason: asText(firstValue(raw.endReason, raw.end_reason, raw.ending && raw.ending.reason)),
+        endingRequestedBy: asText(firstPath(raw,["ending.requestedBy","ending.requested_by"])),
+        endingConfirmedBy: asText(firstPath(raw,["ending.confirmedBy","ending.confirmed_by"])),
+        consensusConfirmations: Array.isArray(firstPath(raw,["consensus.confirmations"])) ? firstPath(raw,["consensus.confirmations"]).length : 0,
+        sourceAttribution: asText(sourceCredit && typeof sourceCredit === "object"
+          ? firstValue(sourceCredit.attribution, sourceCredit.author) : sourceCredit),
+        appVersion: asText(firstValue(raw.appVersion, raw.app_version))
+      };
+    }
+
+    function filteredTrials(){
+      const needle = state.query.trim().toLocaleLowerCase();
+      const list = state.trials.filter((trial) => {
+        if(state.status !== "all" && trial.status !== state.status) return false;
+        if(!needle) return true;
+        const haystack = [trial.id,trial.sessionId,trial.patternId,trial.patternName,trial.pairLabel,
+          ...trial.rounds.flatMap((r) => [r.sentText,r.rawTranscript])].join(" ").toLocaleLowerCase();
+        return haystack.includes(needle);
+      });
+      list.sort((a,b) => {
+        if(state.sort === "rounds") return b.rounds.length-a.rounds.length || a.id.localeCompare(b.id);
+        const delta = parseDate(a.updatedAt || a.startedAt)-parseDate(b.updatedAt || b.startedAt);
+        return state.sort === "oldest" ? delta : -delta;
+      });
+      return list;
+    }
+    function statusLabel(status){ return status === "complete" ? "已完成" : status === "revealed" ? "已揭示" : "进行中"; }
+    function setStatus(message, error=false){ els.statusText.textContent = message; els.statusbar.classList.toggle("error", error); }
+    let toastTimer;
+    function toast(message){ clearTimeout(toastTimer); els.toast.textContent = message; els.toast.classList.add("show"); toastTimer=setTimeout(()=>els.toast.classList.remove("show"),2600); }
+
+    function renderList(){
+      const visible = filteredTrials();
+      els.trialCount.textContent = `${visible.length} / ${state.trials.length} trials`;
+      els.downloadAll.disabled = state.trials.length === 0;
+      els.trialList.innerHTML = visible.map((trial) => `
+        <button class="trial-item ${trial.id===state.selectedId?"active":""}" type="button" data-trial-id="${escapeHTML(trial.id)}" aria-pressed="${trial.id===state.selectedId}">
+          <span class="trial-head"><span class="trial-id">${escapeHTML(trial.id)}</span><span class="status-pill ${trial.status}">${statusLabel(trial.status)}</span></span>
+          <span class="trial-meta"><span>${escapeHTML(trial.patternName)}</span><span>·</span><span>${trial.rounds.length} rounds</span></span>
+          <span class="trial-meta"><span>${escapeHTML(formatDate(trial.updatedAt || trial.startedAt))}</span>${trial.pairLabel?`<span>· ${escapeHTML(trial.pairLabel)}</span>`:""}</span>
+        </button>`).join("");
+      els.trialList.querySelectorAll("[data-trial-id]").forEach((button) => button.addEventListener("click", () => selectTrial(button.dataset.trialId)));
+      if(visible.length === 0 && state.trials.length){
+        els.trialList.innerHTML = `<div style="padding:18px 12px;color:var(--muted);font-size:12px;text-align:center">没有符合筛选条件的 trial</div>`;
+      }
+    }
+
+    function gridHTML(grid, previous=null, extraClass="", label="12 × 12 棋盘"){
+      if(!grid) return `<div class="missing-board">这一阶段还没有可显示的<br>12 × 12 棋盘</div>`;
+      const cells=[];
+      for(let r=0;r<GRID_SIZE;r++) for(let c=0;c<GRID_SIZE;c++){
+        const on=grid[r][c]===1, before=previous ? previous[r][c]===1 : false;
+        const diff=previous ? (on&&!before?" added":!on&&before?" removed":"") : "";
+        cells.push(`<span class="cell${on?" on":""}${diff}" aria-hidden="true"></span>`);
+      }
+      return `<div class="board-shell"><div class="board ${extraClass}" role="img" aria-label="${escapeHTML(label)}，${beadCount(grid)} 颗珠">${cells.join("")}</div></div>`;
+    }
+    function legendHTML(hasPrevious){ return hasPrevious ? `<div class="legend"><span><i class="swatch"></i>新增</span><span><i class="swatch remove"></i>移除</span></div>` : `<div class="legend">首轮基线</div>`; }
+    function sourceCard(trial){
+      const initial=(trial.patternName||trial.patternId||"T").trim().charAt(0);
+      const image=trial.sourceImage ? `<img src="${escapeHTML(trial.sourceImage)}" alt="${escapeHTML(trial.patternName)} 的正常源图">` : `<div class="source-fallback"><span><strong>${escapeHTML(initial)}</strong>源图未包含在<br>本次 JSON 中</span></div>`;
+      return `<article class="stage endpoint target"><div class="stage-kicker"><span>Target</span><span>正常图</span></div><h3>${escapeHTML(trial.patternName)}</h3><div class="source-frame">${image}</div><div class="source-caption">${trial.patternId?`图案 ID：${escapeHTML(trial.patternId)}<br>`:""}${trial.sourceAttribution?`来源：${escapeHTML(trial.sourceAttribution)}<br>`:""}该图仅供研究者在结果页核对。</div></article>`;
+    }
+    function roundCard(round, previous){
+      const timing=formatDuration(round.startedAt, round.submittedAt);
+      const sent=round.sentText || "（未记录最终发送文字）";
+      const raw=round.rawTranscript || "（未记录原始转写）";
+      return `<article class="stage round-card">
+        <div class="stage-kicker"><span class="round-num">Round ${round.number}</span><span>${round.language?escapeHTML(round.language)+" · ":""}${timing||formatDate(round.submittedAt||round.startedAt)}</span></div>
+        <h3>指令 → Listener 提交</h3>
+        <div class="speech"><div class="speech-row"><span class="speech-label">Speaker · Sent text</span><div class="speech-text">${escapeHTML(sent)}</div></div><div class="speech-row"><span class="speech-label">Raw transcript</span><div class="speech-text raw">${escapeHTML(raw)}</div></div></div>
+        <div class="board-title"><span>Listener board</span><span>${round.submitted?beadCount(round.submitted)+" beads":"—"}</span></div>
+        ${gridHTML(round.submitted,previous,"",`Round ${round.number} Listener 棋盘`)}${legendHTML(Boolean(previous&&round.submitted))}
+        ${round.prediction?`<div class="prediction-block"><div class="board-title"><span>Speaker prediction</span><span>${beadCount(round.prediction)} beads</span></div>${gridHTML(round.prediction,null,"prediction",`Round ${round.number} Speaker prediction`)}</div>`:""}
+      </article>`;
+    }
+    function finalCard(title,kicker,grid,previous,kind,detail){
+      return `<article class="stage ${kind}"><div class="stage-kicker"><span>${escapeHTML(kicker)}</span><span>${grid?beadCount(grid)+" beads":"pending"}</span></div><h3>${escapeHTML(title)}</h3>${gridHTML(grid,previous,kind==="endpoint consensus"?"consensus-grid":"",title)}${grid?legendHTML(Boolean(previous)):""}<div class="source-caption">${escapeHTML(detail)}</div></article>`;
+    }
+
+    function renderDetail(){
+      const trial=state.trials.find((item)=>item.id===state.selectedId);
+      if(!trial){ els.empty.style.display="grid"; els.detail.classList.remove("visible"); return; }
+      els.empty.style.display="none"; els.detail.classList.add("visible");
+      els.detailName.textContent=trial.id;
+      const chips=[statusLabel(trial.status),trial.patternName,`${trial.rounds.length} rounds`,formatDate(trial.startedAt)];
+      if(trial.pairLabel) chips.push(trial.pairLabel);
+      if(trial.appVersion) chips.push(`app ${trial.appVersion}`);
+      els.detailChips.innerHTML=chips.map((chip)=>`<span class="chip">${escapeHTML(chip)}</span>`).join("");
+      let previous=null;
+      const cards=[sourceCard(trial)];
+      for(const round of trial.rounds){ cards.push(roundCard(round,previous)); if(round.submitted) previous=round.submitted; }
+      const prePrevious=previous;
+      const endingNote=trial.endReason?`结束原因：${trial.endReason}`:trial.endingRequestedBy?`${trial.endingRequestedBy} 请求结束${trial.endingConfirmedBy?`，${trial.endingConfirmedBy} 确认`:""}。`:"Target 揭示前已冻结的 Listener 结果。";
+      cards.push(finalCard("揭示前最终棋盘","Pre-reveal final",trial.preReveal,prePrevious,"pre-reveal",endingNote));
+      cards.push(finalCard("双方最终共识","Pair consensus",trial.consensus,trial.preReveal||previous,"endpoint consensus",trial.consensus?`双方看到正常源图后共同完成的标准答案${trial.consensusConfirmations?`；${trial.consensusConfirmations} 次确认`:""}。`:"尚未完成双方共识阶段。"));
+      els.timeline.innerHTML=cards.join("");
+      els.timeline.scrollLeft=0;
+    }
+    function render(){ renderList(); renderDetail(); }
+    function selectTrial(id){ state.selectedId=id; render(); }
+
+    async function importFiles(fileList){
+      const files=Array.from(fileList||[]); if(!files.length) return;
+      const candidates=[]; const errors=[];
+      for(const file of files){
+        try{
+          const text=await file.text(); const parsed=JSON.parse(text);
+          collectPayload(parsed,file.name).forEach((item)=>candidates.push(item));
+        }catch(error){ errors.push(`${file.name}: ${error.message}`); }
+      }
+      ingest(candidates,errors);
+      els.fileInput.value="";
+      document.querySelectorAll("[data-file-picker]").forEach((input)=>input.value="");
+    }
+    function ingest(candidates,initialErrors=[]){
+      const errors=[...initialErrors]; const normalized=[];
+      candidates.forEach((item,index)=>{
+        try{ normalized.push(normalizeTrial(item.trial,item.sourceLabel,index)); }
+        catch(error){ errors.push(`${item.sourceLabel||`item ${index+1}`}: ${error.message}`); }
+      });
+      const byId=new Map(state.trials.map((trial)=>[trial.id,trial]));
+      normalized.forEach((trial)=>byId.set(trial.id,trial));
+      state.trials=Array.from(byId.values());
+      if(!state.selectedId || !byId.has(state.selectedId)) state.selectedId=normalized[0]?.id || state.trials[0]?.id || null;
+      render();
+      if(errors.length){ setStatus(`已载入 ${normalized.length} 个 trial；${errors.length} 项失败。${errors[0]}`,true); toast(`有 ${errors.length} 项无法导入`); }
+      else if(normalized.length){ setStatus(`已载入 ${normalized.length} 个 trial；当前共 ${state.trials.length} 个`); toast(`成功载入 ${normalized.length} 个 trial`); }
+      else setStatus("没有找到可用的 perler-trial/v1 数据",true);
+    }
+
+    function downloadJSON(payload,filename){
+      const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+      const url=URL.createObjectURL(blob); const anchor=document.createElement("a");
+      anchor.href=url; anchor.download=filename; document.body.appendChild(anchor); anchor.click(); anchor.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),0);
+    }
+    function selectedTrial(){ return state.trials.find((trial)=>trial.id===state.selectedId); }
+
+    els.fileInput.addEventListener("change",(event)=>importFiles(event.target.files));
+    document.querySelectorAll("[data-file-picker]").forEach((input)=>input.addEventListener("change",(event)=>importFiles(event.target.files)));
+    els.search.addEventListener("input",()=>{state.query=els.search.value;renderList();});
+    els.statusFilter.addEventListener("change",()=>{state.status=els.statusFilter.value;renderList();});
+    els.sortOrder.addEventListener("change",()=>{state.sort=els.sortOrder.value;renderList();});
+    els.downloadSelected.addEventListener("click",()=>{const trial=selectedTrial();if(trial)downloadJSON(trial.raw,`perler_trial_${slug(trial.id)}.json`);});
+    els.downloadAll.addEventListener("click",()=>downloadJSON({schemaVersion:"perler-trial-collection/v1",exportedAt:new Date().toISOString(),trials:state.trials.map((t)=>t.raw)},`perler_trials_${Date.now()}.json`));
+    function closeApi(){els.apiPanel.classList.remove("open");els.apiToggle.setAttribute("aria-expanded","false");}
+    els.apiToggle.addEventListener("click",()=>{const open=!els.apiPanel.classList.contains("open");els.apiPanel.classList.toggle("open",open);els.apiToggle.setAttribute("aria-expanded",String(open));if(open)els.apiUrl.focus();});
+    els.apiCancel.addEventListener("click",closeApi);
+    document.addEventListener("click",(event)=>{if(!event.target.closest(".api-wrap"))closeApi();});
+    els.apiLoad.addEventListener("click",async()=>{
+      const rawUrl=els.apiUrl.value.trim(); if(!rawUrl){setStatus("请输入 API URL",true);els.apiUrl.focus();return;}
+      let url; try{url=new URL(rawUrl,location.href);}catch(_){setStatus("API URL 格式不正确",true);return;}
+      if(!/^https?:$/.test(url.protocol)){setStatus("API URL 必须使用 http 或 https",true);return;}
+      els.apiLoad.disabled=true;els.apiLoad.textContent="加载中…";setStatus("正在从研究数据 API 加载…");
+      try{
+        const headers={Accept:"application/json"}; const token=els.apiToken.value.trim(); if(token)headers.Authorization=`Bearer ${token}`;
+        const response=await fetch(url.href,{method:"GET",headers,cache:"no-store"});
+        if(!response.ok)throw new Error(`HTTP ${response.status}`);
+        const payload=await response.json();
+        let candidates=collectPayload(payload,url.host);
+        const summaries=payload && Array.isArray(payload.trials) ? payload.trials : null;
+        if(summaries && summaries.length && summaries.every((item)=>item && item.trialId && !Array.isArray(item.rounds))){
+          const base=url.href.replace(/\/$/,"");
+          const records=await Promise.all(summaries.map(async(summary)=>{
+            const itemResponse=await fetch(`${base}/${encodeURIComponent(summary.trialId)}`,{method:"GET",headers,cache:"no-store"});
+            if(!itemResponse.ok)throw new Error(`HTTP ${itemResponse.status} (${summary.trialId})`);
+            return itemResponse.json();
+          }));
+          candidates=records.map((trial)=>({trial,sourceLabel:url.host}));
+        }
+        ingest(candidates,[]);closeApi();
+      }catch(error){setStatus(`API 加载失败：${error.message}。请检查地址、Token 与 CORS 设置。`,true);toast("API 加载失败");}
+      finally{els.apiLoad.disabled=false;els.apiLoad.textContent="加载 trials";}
+    });
+
+    const configuredApi=new URLSearchParams(location.search).get("api");
+    if(configuredApi){
+      try{els.apiUrl.value=new URL("/api/trials",configuredApi).href;}catch(_){els.apiUrl.value=configuredApi;}
+    }
+
+    let dragDepth=0;
+    window.addEventListener("dragenter",(event)=>{event.preventDefault();dragDepth++;els.dropOverlay.classList.add("show");});
+    window.addEventListener("dragover",(event)=>event.preventDefault());
+    window.addEventListener("dragleave",(event)=>{event.preventDefault();dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)els.dropOverlay.classList.remove("show");});
+    window.addEventListener("drop",(event)=>{event.preventDefault();dragDepth=0;els.dropOverlay.classList.remove("show");importFiles(event.dataTransfer.files);});
+    els.timeline.addEventListener("wheel",(event)=>{if(event.shiftKey&&Math.abs(event.deltaY)>Math.abs(event.deltaX)){event.preventDefault();els.timeline.scrollLeft+=event.deltaY;}},{passive:false});
+    window.addEventListener("keydown",(event)=>{if(event.key==="Escape")closeApi();});
+
+    render();
+  })();
+  </script>
+</body>
+</html>
